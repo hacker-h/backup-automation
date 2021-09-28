@@ -1,6 +1,14 @@
 # Backup Automation
 This is a tool to automatically backup your systems with encryption to storage backends.
 
+## Requirements
+```
+sudo wget -O /usr/local/bin/decode-config https://github.com/tasmota/decode-config/releases/download/v9.5.0/decode-config_linux
+sudo chmod +x /usr/local/bin/decode-config
+```
+
+Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
+
 ## Features
 
 - [ ] Automatic backup fetching
@@ -17,3 +25,6 @@ This is a tool to automatically backup your systems with encryption to storage b
 - [ ] Run as Python Script
 - [ ] Run as (Docker) Container
 - [ ] Container Image available on Docker Hub
+
+## No Support planned
+- ❌ HTTP(S) Git Repository backends
