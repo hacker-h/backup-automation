@@ -7,7 +7,7 @@ backends:
     repository_url: git@github.com:YOUR_GITHUB_USER/YOUR_GITHUB_REPO.git
 
 templates:
-  - name: tasmota_github
+  tasmota_github:
     http_username: YOUR_TASMOTA_USERNAME
     http_password: SECRET_tasmota_http_password
     backend_name: github
