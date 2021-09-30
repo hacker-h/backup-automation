@@ -30,8 +30,20 @@ Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
 - ❌ HTTP(S) Git Repository backends
 
 ## Requirements
+- [Python 3.9](https://linuxize.com/post/how-to-install-python-3-9-on-ubuntu-20-04/) or newer
 - at least one tasmota device with enabled web interface
 - fill out the `config.yaml.example` properly as `config.yaml`
 - (optional) use the `secrets.yaml` to render variable values that start with `SECRET_`.
 
+This allows you to extract sensitive values into a dedicated more compact file.
+
 ## Getting started
+
+```
+# install requirements
+pip3.9 install -r requirements.txt
+# run the backup script
+python3.9 ./backup.py
+```
+
+to be continued..
