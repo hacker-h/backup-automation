@@ -13,6 +13,8 @@ import os
 from pprint import pprint
 from shutil import which
 import git
+import pathlib
+from pathlib import Path
 
 # setup logging
 logging.basicConfig(
@@ -26,7 +28,12 @@ SECRETS_FILE = "secrets.yaml"
 GIT_BACKEND = "git"
 SECRET_PREFIX = "SECRET_"
 TEMP_DIR = "/tmp/.backup-automation"
-
+GIT_ATTRIBUTES_CONTENT = """
+*              filter=git-crypt diff=git-crypt
+.gitattributes !filter !diff !merge text
+.gitignore     !filter !diff !merge text
+README.md      !filter !diff !merge text
+"""
 # verify that decode-config is available in PATH
 if which("decode-config") is not None:
     logger.debug("decode-config is available")
@@ -85,18 +92,26 @@ for backend in backends:
         # clone or update git repository
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
-        if os.path.isdir(repo_dir):
-            # repo already exists
-            # TODO
-            pass
-        else:
-            # repo does not exist yet
-            # TODO
+        Path(repo_dir).mkdir(parents=True, exist_ok=True)
+        git_repo = git.Repo.init(repo_dir)
+        try:
+            remote = git_repo.remote("origin")
+            if remote.url != repo_url:
+                git_repo.delete_remote("origin")
+                raise ValueError("Wrong remote URL")
+        except ValueError:
+            logger.info("adding new remote origin")
+            git_repo.create_remote("origin", repo_url)
+        git_attributes_path = os.path.join(repo_dir, ".gitattributes")
+        if not Path(git_attributes_path).is_file():
+            logger.info("creating .gitattributes")
+            with open(git_attributes_path, "w+") as f:
+                f.write(GIT_ATTRIBUTES_CONTENT)
             pass
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
-
+exit(0)
 # create tempdir
 try:
     os.mkdir(TEMP_DIR)
@@ -129,7 +144,8 @@ for backup_config in backup_configs:
         try:
             process_handle = subprocess.call(shlex.split(command), stdout=f)
         except:
-            logger.error("{} while running {}".format(sys.exc_info()[1], command))
+            logger.error("{} while running {}".format(
+                sys.exc_info()[1], command))
             exit(1)
 
         # try to parse the obtained json
@@ -137,12 +153,13 @@ for backup_config in backup_configs:
         json_content = f.read()
         try:
             json_dict = json.loads(json_content)
-            os.remove(temp_dmp_path)
         except json.decoder.JSONDecodeError:
             logger.error("Invalid JSON data from host '%s'", backup_host)
             exit(1)
+    # remove temporary dmp file
+    os.remove(temp_dmp_path)
 
-# encrypt json backup in tempdir
+# encrypt json backup with git-crypt
 
 # iterate over backends
 # synchronize with backend
