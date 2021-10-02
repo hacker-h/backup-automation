@@ -93,6 +93,7 @@ for backend in backends:
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
         identity_file: str = backend.get("identity_file")
+        ssh_cmd = "ssh -i %s" % identity_file
         Path(repo_dir).mkdir(parents=True, exist_ok=True)
         git_repo = git.Repo.init(repo_dir)
         try:
@@ -103,10 +104,9 @@ for backend in backends:
         except ValueError:
             logger.info("adding new remote origin")
             remote = git_repo.create_remote("origin", repo_url)
-        fetch = remote.fetch()
-        ssh_cmd = "ssh -i %s" % identity_file
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             git_repo.remotes.origin.fetch()
+            fetch = remote.fetch()
 
         git_repo.create_head('master', remote.refs.master)
         git_repo.heads.master.set_tracking_branch(remote.refs.master)
@@ -121,7 +121,8 @@ for backend in backends:
             print(git_repo.untracked_files)
             git_repo.index.add(git_repo.untracked_files)
             git_repo.index.commit("add .gitattributes")
-            remote.push()
+            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                remote.push()
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
