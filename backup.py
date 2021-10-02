@@ -12,6 +12,7 @@ import yaml
 import os
 from pprint import pprint
 from shutil import which
+import shutil
 import git
 import pathlib
 from pathlib import Path
@@ -86,7 +87,8 @@ for backup_config in backup_configs:
 backup_configs = rendered_backup_configs
 
 # setup backends
-for backend in backends:
+for backend_name in backends:
+    backend = backends[backend_name]
     backend_type = backend.get("type")
     if backend_type == GIT_BACKEND:
         # clone or update git repository
@@ -111,7 +113,6 @@ for backend in backends:
         git_repo.create_head('master', remote.refs.master)
         git_repo.heads.master.set_tracking_branch(remote.refs.master)
         git_repo.heads.master.checkout()
-        exit(0)
         git_attributes_path = os.path.join(repo_dir, ".gitattributes")
         if not Path(git_attributes_path).is_file():
             logger.info("creating .gitattributes")
@@ -126,7 +127,6 @@ for backend in backends:
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
-exit(0)
 # create tempdir
 try:
     os.mkdir(TEMP_DIR)
@@ -174,7 +174,18 @@ for backup_config in backup_configs:
     # remove temporary dmp file
     os.remove(temp_dmp_path)
 
-# encrypt json backup with git-crypt
+    # store new backup to backend
+    backend = backends[backend_name]
+    backend_type = backend.get("type")
+    if backend_type == GIT_BACKEND:
+        repo_path = backend.get("repository_directory")
+        sub_directory = backup_config.get("repository_sub_directory")
+        repo_sub_path = os.path.join(repo_path, sub_directory)
+        # make sure sub directory exists
+        Path(repo_sub_path).mkdir(parents=True, exist_ok=True)
+        repo_file_path = os.path.join(repo_sub_path, temp_json_name)
+        # move json to backend repo
+        shutil.move(temp_json_path, repo_file_path)
 
 # iterate over backends
 # synchronize with backend
