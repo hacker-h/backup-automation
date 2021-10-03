@@ -101,10 +101,12 @@ for backend_name in backends:
         # clone or update git repository
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
+        branch_name: str = backend.get("branch_name")
         identity_file: str = backend.get("identity_file")
         ssh_cmd = "ssh -i %s" % identity_file
         Path(repo_dir).mkdir(parents=True, exist_ok=True)
         git_repo = git.Repo.init(repo_dir)
+        
         try:
             remote = git_repo.remote("origin")
             if remote.url != repo_url:
@@ -118,23 +120,25 @@ for backend_name in backends:
             logger.info("adding new remote origin")
             remote = git_repo.create_remote("origin", repo_url)
         # fetch upstream branches
+        remote.update()
         # remote.fetch()
-        # remote.update()
+        git_repo.git.checkout(branch_name)
         remote_is_empty = False
+        
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             try:
-                logger.info("pulling remote master branch")
-                remote.pull("master")
+                logger.info("pulling remote '%s' branch", branch_name)
+                remote.pull(branch_name)
             except git.exc.GitCommandError as e:
-                if "couldn't find remote ref master" in e.stderr:
-                    logger.info("remote master branch is missing")
+                if "couldn't find remote ref '%s'" % branch_name in e.stderr:
+                    logger.info("remote '%s' branch is missing", branch_name)
                     remote_is_empty = True
-                    if "master" in git_repo.heads:
-                        logger.debug("local master branch exists")
-                        git_repo.git.checkout("master")
+                    if branch_name in git_repo.heads:
+                        logger.debug("local '%s' branch exists", branch_name)
+                        git_repo.git.checkout(branch_name)
                     else:
-                        logger.info("creating local master branch")
-                        git_repo.git.checkout(b="master")
+                        logger.info("creating local '%s' branch", branch_name)
+                        git_repo.git.checkout(b=branch_name)
                 elif "Could not read from remote repository" in e.stderr:
                     logger.error("repository does not exist or is not readable")
                     exit(1)
@@ -142,7 +146,7 @@ for backend_name in backends:
                     raise e
         untracked_files = git_repo.untracked_files
         if untracked_files:
-            logger.error("There are untracked files in repo '%s'", repo_dir)
+            logger.error("Untracked files in repo '%s'", repo_dir)
             exit(1)
         git_attributes_path = os.path.join(repo_dir, ".gitattributes")
         if Path(git_attributes_path).is_file():
@@ -153,7 +157,7 @@ for backend_name in backends:
             with open(git_attributes_path, "w+") as f:
                 f.write(GIT_ATTRIBUTES_CONTENT)
             pass
-            logger.info("there are untracked files")
+            untracked_files = git_repo.untracked_files
             git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
         # TODO enable git-crypt
@@ -170,21 +174,33 @@ for backend_name in backends:
                 sys.exc_info()[1], command))
             exit(1)
         # TODO export + import key functionality
-        
-        num_local_commits = len(list(git_repo.iter_commits("master")))
+        num_local_commits = len(list(git_repo.iter_commits(branch_name)))
         logger.debug("num_local_commits: '%i'", num_local_commits)
-        num_remote_commits = len(list(git_repo.iter_commits("origin/master")))
+        if "origin/%s" % branch_name in git_repo.refs:
+            num_remote_commits = len(list(git_repo.iter_commits("origin/%s" % branch_name)))
+        else:
+            num_remote_commits = 0
         if remote_is_empty:
             num_remote_commits = 0
         logger.debug("num_remote_commits: '%i'", num_remote_commits)
         unpushed_commits = num_local_commits > num_remote_commits
         if unpushed_commits:
+            logger.info("validating git-crypt status")
+            command = "git-crypt status"
+            try:
+                process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                process_output = process_handle.stdout.decode()
+                logger.info(process_output)
+            except:
+                logger.error("{} while running {}".format(
+                    sys.exc_info()[1], command))
+                exit(1)
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-                logger.info("pushing master")
-                remote.push("master")
+                logger.info("pushing '%s' branch", branch_name)
+                exit(0)
+                remote.push(branch_name)
         else:
             logger.debug("there are no unpushed commits")
-        exit(0)
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
@@ -264,12 +280,13 @@ for backend_name in backends:
     if backend_type == GIT_BACKEND:
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
+        branch_name: str = backend.get("branch_name")
         identity_file: str = backend.get("identity_file")
         ssh_cmd = "ssh -i %s" % identity_file
         remote = git_repo.remote("origin")
         # pull upstream changes
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-            remote.pull("master")
+            remote.pull(branch_name)
         untracked_files = git_repo.untracked_files
         if untracked_files:
             logger.info("There are untracked files: '%s'", untracked_files)
@@ -278,7 +295,8 @@ for backend_name in backends:
             git_repo.index.commit(commit_message)
             logger.info("Commit created")
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-                remote.push("master")
+                exit(0)
+                remote.push(branch_name)
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
