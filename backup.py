@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.9
 
 # package imports
+from datetime import datetime
 import json
 import requests
 import sys
@@ -12,7 +13,10 @@ import yaml
 import os
 from pprint import pprint
 from shutil import which
+import shutil
 import git
+import pathlib
+from pathlib import Path
 
 # setup logging
 logging.basicConfig(
@@ -26,7 +30,12 @@ SECRETS_FILE = "secrets.yaml"
 GIT_BACKEND = "git"
 SECRET_PREFIX = "SECRET_"
 TEMP_DIR = "/tmp/.backup-automation"
-
+GIT_ATTRIBUTES_CONTENT = """
+*              filter=git-crypt diff=git-crypt
+.gitattributes !filter !diff !merge text
+.gitignore     !filter !diff !merge text
+README.md      !filter !diff !merge text
+"""
 # verify that decode-config is available in PATH
 if which("decode-config") is not None:
     logger.debug("decode-config is available")
@@ -79,24 +88,62 @@ for backup_config in backup_configs:
 backup_configs = rendered_backup_configs
 
 # setup backends
-for backend in backends:
+for backend_name in backends:
+    backend = backends[backend_name]
     backend_type = backend.get("type")
     if backend_type == GIT_BACKEND:
         # clone or update git repository
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
-        if os.path.isdir(repo_dir):
-            # repo already exists
-            # TODO
-            pass
+        identity_file: str = backend.get("identity_file")
+        ssh_cmd = "ssh -i %s" % identity_file
+        Path(repo_dir).mkdir(parents=True, exist_ok=True)
+        git_repo = git.Repo.init(repo_dir)
+        try:
+            remote = git_repo.remote("origin")
+            if remote.url != repo_url:
+                # delete invalid remote
+                git_repo.delete_remote("origin")
+                logger.error("origin pointed to wrong remote URL '%s', expected '%s'. Fixing..",
+                             remote.url, repo_url)
+                raise ValueError(
+                    "Wrong remote URL, remote has to be recreated")
+        except ValueError:
+            logger.info("adding new remote origin")
+            remote = git_repo.create_remote("origin", repo_url)
+        # fetch upstream branches
+        remote.fetch()
+        if "master" in remote.refs:
+            logger.info("remote branch already exists")
+            logger.info("pulling remote master branch")
+            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                remote.pull("master")
         else:
-            # repo does not exist yet
-            # TODO
+            logger.info("remote branch is missing, nothing to pull")
+            logger.info("creating new local master branch")
+            git_repo.git.checkout(b="master")
+
+        git_attributes_path = os.path.join(repo_dir, ".gitattributes")
+        if Path(git_attributes_path).is_file():
+            logger.info(".gitattributes already exists")
+        else:
+            logger.info(".gitattributes is missing")
+            logger.info("creating .gitattributes")
+            with open(git_attributes_path, "w+") as f:
+                f.write(GIT_ATTRIBUTES_CONTENT)
             pass
+        untracked_files = git_repo.untracked_files
+        if untracked_files:
+            logger.info("there are untracked files")
+            git_repo.index.add(untracked_files)
+            git_repo.index.commit("add .gitattributes")
+        else:
+            logger.info("there are no untracked files")
+        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            remote.push("master")
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
-
 # create tempdir
 try:
     os.mkdir(TEMP_DIR)
@@ -129,7 +176,8 @@ for backup_config in backup_configs:
         try:
             process_handle = subprocess.call(shlex.split(command), stdout=f)
         except:
-            logger.error("{} while running {}".format(sys.exc_info()[1], command))
+            logger.error("{} while running {}".format(
+                sys.exc_info()[1], command))
             exit(1)
 
         # try to parse the obtained json
@@ -137,16 +185,50 @@ for backup_config in backup_configs:
         json_content = f.read()
         try:
             json_dict = json.loads(json_content)
-            os.remove(temp_dmp_path)
         except json.decoder.JSONDecodeError:
             logger.error("Invalid JSON data from host '%s'", backup_host)
             exit(1)
+    # remove temporary dmp file
+    os.remove(temp_dmp_path)
 
-# encrypt json backup in tempdir
+    # store new backup to backend
+    backend = backends[backend_name]
+    backend_type = backend.get("type")
+    if backend_type == GIT_BACKEND:
+        repo_path = backend.get("repository_directory")
+        sub_directory = backup_config.get("repository_sub_directory")
+        repo_sub_path = os.path.join(repo_path, sub_directory)
+        # make sure sub directory exists
+        Path(repo_sub_path).mkdir(parents=True, exist_ok=True)
+        repo_file_path = os.path.join(repo_sub_path, temp_json_name)
+        # move json to backend repo
+        shutil.move(temp_json_path, repo_file_path)
+
+exit(0)
+# timestamp commit message
+now = datetime.now() # current date and time
+commit_message = now.strftime("%Y-%m-%d %H:%M:%S update backups")
 
 # iterate over backends
-# synchronize with backend
-# pull latest backend git repo master branch
+for backend_name in backends:
+    backend = backends[backend_name]
+    backend_type = backend.get("type")
+    if backend_type == GIT_BACKEND:
+        repo_url: str = backend.get("repository_url")
+        repo_dir: str = backend.get("repository_directory")
+        identity_file: str = backend.get("identity_file")
+        ssh_cmd = "ssh -i %s" % identity_file
+        remote = git_repo.remote("origin")
+        # pull upstream changes
+        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            remote.pull("master")
+        print(git_repo.untracked_files)
+        # git_repo.index.add(git_repo.untracked_files)
+        # with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+        #     remote.push()
+    else:
+        logger.error("Unsupported backend_type '%s'", backend_type)
+        exit(1)
 
 # copy encrypted backups to target directories in backends
 
