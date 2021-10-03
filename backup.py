@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.9
 
 # package imports
+from datetime import datetime
 import json
 import requests
 import sys
@@ -101,29 +102,45 @@ for backend_name in backends:
         try:
             remote = git_repo.remote("origin")
             if remote.url != repo_url:
+                # delete invalid remote
                 git_repo.delete_remote("origin")
-                raise ValueError("Wrong remote URL")
+                logger.error("origin pointed to wrong remote URL '%s', expected '%s'. Fixing..",
+                             remote.url, repo_url)
+                raise ValueError(
+                    "Wrong remote URL, remote has to be recreated")
         except ValueError:
             logger.info("adding new remote origin")
             remote = git_repo.create_remote("origin", repo_url)
-        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-            git_repo.remotes.origin.fetch()
-            fetch = remote.fetch()
+        # fetch upstream branches
+        remote.fetch()
+        if "master" in remote.refs:
+            logger.info("remote branch already exists")
+            logger.info("pulling remote master branch")
+            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                remote.pull("master")
+        else:
+            logger.info("remote branch is missing, nothing to pull")
+            logger.info("creating new local master branch")
+            git_repo.git.checkout(b="master")
 
-        git_repo.create_head('master', remote.refs.master)
-        git_repo.heads.master.set_tracking_branch(remote.refs.master)
-        git_repo.heads.master.checkout()
         git_attributes_path = os.path.join(repo_dir, ".gitattributes")
-        if not Path(git_attributes_path).is_file():
+        if Path(git_attributes_path).is_file():
+            logger.info(".gitattributes already exists")
+        else:
+            logger.info(".gitattributes is missing")
             logger.info("creating .gitattributes")
             with open(git_attributes_path, "w+") as f:
                 f.write(GIT_ATTRIBUTES_CONTENT)
             pass
-            print(git_repo.untracked_files)
-            git_repo.index.add(git_repo.untracked_files)
+        untracked_files = git_repo.untracked_files
+        if untracked_files:
+            logger.info("there are untracked files")
+            git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
-            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-                remote.push()
+        else:
+            logger.info("there are no untracked files")
+        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            remote.push("master")
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
@@ -187,9 +204,31 @@ for backup_config in backup_configs:
         # move json to backend repo
         shutil.move(temp_json_path, repo_file_path)
 
+exit(0)
+# timestamp commit message
+now = datetime.now() # current date and time
+commit_message = now.strftime("%Y-%m-%d %H:%M:%S update backups")
+
 # iterate over backends
-# synchronize with backend
-# pull latest backend git repo master branch
+for backend_name in backends:
+    backend = backends[backend_name]
+    backend_type = backend.get("type")
+    if backend_type == GIT_BACKEND:
+        repo_url: str = backend.get("repository_url")
+        repo_dir: str = backend.get("repository_directory")
+        identity_file: str = backend.get("identity_file")
+        ssh_cmd = "ssh -i %s" % identity_file
+        remote = git_repo.remote("origin")
+        # pull upstream changes
+        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            remote.pull("master")
+        print(git_repo.untracked_files)
+        # git_repo.index.add(git_repo.untracked_files)
+        # with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+        #     remote.push()
+    else:
+        logger.error("Unsupported backend_type '%s'", backend_type)
+        exit(1)
 
 # copy encrypted backups to target directories in backends
 
