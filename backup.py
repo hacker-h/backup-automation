@@ -137,10 +137,10 @@ for backend_name in backends:
             logger.info("there are untracked files")
             git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
+            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                remote.push("master")
         else:
             logger.info("there are no untracked files")
-        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-            remote.push("master")
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
@@ -204,7 +204,6 @@ for backup_config in backup_configs:
         # move json to backend repo
         shutil.move(temp_json_path, repo_file_path)
 
-exit(0)
 # timestamp commit message
 now = datetime.now() # current date and time
 commit_message = now.strftime("%Y-%m-%d %H:%M:%S update backups")
@@ -222,20 +221,18 @@ for backend_name in backends:
         # pull upstream changes
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             remote.pull("master")
-        print(git_repo.untracked_files)
-        # git_repo.index.add(git_repo.untracked_files)
-        # with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-        #     remote.push()
+        untracked_files = git_repo.untracked_files
+        if untracked_files:
+            logger.info("There are untracked files: '%s'", untracked_files)
+            git_repo.index.add(untracked_files)
+            logger.info("Committing")
+            git_repo.index.commit(commit_message)
+            logger.info("Commit created")
+            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                remote.push("master")
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
 
-# copy encrypted backups to target directories in backends
-
-# if git backend
-# update backend git repo readme with current timestamp
-# commit all changes
-
-# push master branch
-
+#TODO
 # if push fails, repeat: reset commit, stash, pull, stash pop, commit, push
