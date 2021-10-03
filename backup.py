@@ -20,9 +20,9 @@ from pathlib import Path
 
 # setup logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("backup")
 
 # constants
 CONFIG_FILE = "config.yaml"
@@ -41,6 +41,12 @@ if which("decode-config") is not None:
     logger.debug("decode-config is available")
 else:
     logger.error("decode-config is missing!")
+    quit(1)
+# verify that git-crypt is available in PATH
+if which("git-crypt") is not None:
+    logger.debug("git-crypt is available")
+else:
+    logger.error("git-crypt is missing!")
     quit(1)
 
 # parse yaml files
@@ -112,35 +118,73 @@ for backend_name in backends:
             logger.info("adding new remote origin")
             remote = git_repo.create_remote("origin", repo_url)
         # fetch upstream branches
-        remote.fetch()
-        if "master" in remote.refs:
-            logger.info("remote branch already exists")
-            logger.info("pulling remote master branch")
-            with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+        # remote.fetch()
+        # remote.update()
+        remote_is_empty = False
+        with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            try:
+                logger.info("pulling remote master branch")
                 remote.pull("master")
-        else:
-            logger.info("remote branch is missing, nothing to pull")
-            logger.info("creating new local master branch")
-            git_repo.git.checkout(b="master")
-
+            except git.exc.GitCommandError as e:
+                if "couldn't find remote ref master" in e.stderr:
+                    logger.info("remote master branch is missing")
+                    remote_is_empty = True
+                    if "master" in git_repo.heads:
+                        logger.debug("local master branch exists")
+                        git_repo.git.checkout("master")
+                    else:
+                        logger.info("creating local master branch")
+                        git_repo.git.checkout(b="master")
+                elif "Could not read from remote repository" in e.stderr:
+                    logger.error("repository does not exist or is not readable")
+                    exit(1)
+                else:
+                    raise e
+        untracked_files = git_repo.untracked_files
+        if untracked_files:
+            logger.error("There are untracked files in repo '%s'", repo_dir)
+            exit(1)
         git_attributes_path = os.path.join(repo_dir, ".gitattributes")
         if Path(git_attributes_path).is_file():
-            logger.info(".gitattributes already exists")
+            logger.debug(".gitattributes already exists")
         else:
             logger.info(".gitattributes is missing")
             logger.info("creating .gitattributes")
             with open(git_attributes_path, "w+") as f:
                 f.write(GIT_ATTRIBUTES_CONTENT)
             pass
-        untracked_files = git_repo.untracked_files
-        if untracked_files:
             logger.info("there are untracked files")
             git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
+        # TODO enable git-crypt
+        command = "git-crypt init"
+        try:
+            process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            process_output = process_handle.stdout.decode()
+            if "already been initialized" in process_output:
+                logger.debug("git-crypt is already initialized")
+            elif "Generating key..." in process_output:
+                logger.debug("git-crypt initialized")
+        except:
+            logger.error("{} while running {}".format(
+                sys.exc_info()[1], command))
+            exit(1)
+        # TODO export + import key functionality
+        
+        num_local_commits = len(list(git_repo.iter_commits("master")))
+        logger.debug("num_local_commits: '%i'", num_local_commits)
+        num_remote_commits = len(list(git_repo.iter_commits("origin/master")))
+        if remote_is_empty:
+            num_remote_commits = 0
+        logger.debug("num_remote_commits: '%i'", num_remote_commits)
+        unpushed_commits = num_local_commits > num_remote_commits
+        if unpushed_commits:
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                logger.info("pushing master")
                 remote.push("master")
         else:
-            logger.info("there are no untracked files")
+            logger.debug("there are no unpushed commits")
+        exit(0)
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
@@ -161,8 +205,13 @@ for backup_config in backup_configs:
 
     # fetch binary backup to tempdir
     backup_download_url = "http://%s/dl" % backup_host
-    response = requests.get(backup_download_url,
-                            auth=(http_username, http_password))
+    try:
+        logger.info("Fetching backup for '%s'", backup_host)
+        response = requests.get(backup_download_url,
+                                auth=(http_username, http_password))
+    except OSError:
+        logger.error("Skipping '%s': network error", backup_host)
+        continue
     temp_dmp_name = "%s.dmp" % backup_host.replace("/", "_")
     temp_dmp_path = os.path.join(TEMP_DIR, temp_dmp_name)
     with open(temp_dmp_path, "wb") as f:
@@ -205,7 +254,7 @@ for backup_config in backup_configs:
         shutil.move(temp_json_path, repo_file_path)
 
 # timestamp commit message
-now = datetime.now() # current date and time
+now = datetime.now()  # current date and time
 commit_message = now.strftime("%Y-%m-%d %H:%M:%S update backups")
 
 # iterate over backends
@@ -234,5 +283,5 @@ for backend_name in backends:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
 
-#TODO
+# TODO
 # if push fails, repeat: reset commit, stash, pull, stash pop, commit, push
