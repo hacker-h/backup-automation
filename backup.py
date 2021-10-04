@@ -101,7 +101,7 @@ for backend_name in backends:
         # clone or update git repository
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
-        branch_name: str = backend.get("branch_name")
+        branch_name: str = backend.get("branch_name", "master")
         identity_file: str = backend.get("identity_file")
         ssh_cmd = "ssh -i %s" % identity_file
         Path(repo_dir).mkdir(parents=True, exist_ok=True)
@@ -160,7 +160,6 @@ for backend_name in backends:
             untracked_files = git_repo.untracked_files
             git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
-        # TODO enable git-crypt
         command = "git-crypt init"
         try:
             process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
@@ -197,8 +196,9 @@ for backend_name in backends:
             output_lines = process_output.splitlines()
             output_lines.remove('not encrypted: .gitattributes')
             output_lines.remove('not encrypted: README.md')
+            logger.debug(output_lines)
             for line in output_lines:
-                if line.startswith("not encrypted"):
+                if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
                     logger.error("Error there is at least one unencrypted file: '%s'", line)
                     logger.error("Full output of git-crypt status: '%s'", process_output)
                     exit(1)
@@ -287,22 +287,40 @@ for backend_name in backends:
     if backend_type == GIT_BACKEND:
         repo_url: str = backend.get("repository_url")
         repo_dir: str = backend.get("repository_directory")
-        branch_name: str = backend.get("branch_name")
+        branch_name: str = backend.get("branch_name", "master")
         identity_file: str = backend.get("identity_file")
         ssh_cmd = "ssh -i %s" % identity_file
         remote = git_repo.remote("origin")
         # pull upstream changes
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             remote.pull(branch_name)
-        untracked_files = git_repo.untracked_files
-        if untracked_files:
-            logger.info("There are untracked files: '%s'", untracked_files)
-            git_repo.index.add(untracked_files)
+        repo_changes = git_repo.is_dirty(untracked_files=True)
+        if repo_changes:
+            logger.info("There are changes: '%s'", repo_changes)
+            git_repo.git.add(".")
+            logger.debug("validating git encryption")
+            command = "git-crypt status"
+            try:
+                process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+                process_output = process_handle.stdout.decode()
+            except:
+                logger.error("{} while running {}".format(
+                    sys.exc_info()[1], command))
+                exit(1)
+            output_lines = process_output.splitlines()
+            output_lines.remove('not encrypted: .gitattributes')
+            output_lines.remove('not encrypted: README.md')
+            logger.debug(output_lines)
+            for line in output_lines:
+                if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
+                    logger.error("Error there is at least one unencrypted file: '%s'", line)
+                    logger.error("Full output of git-crypt status: '%s'", process_output)
+                    exit(1)
+            logger.debug("git encryption works")
             logger.info("Committing")
             git_repo.index.commit(commit_message)
             logger.info("Commit created")
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
-                exit(0)
                 remote.push(branch_name)
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
