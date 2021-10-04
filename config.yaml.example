@@ -10,8 +10,8 @@ backends:
 
 templates:
   tasmota_github:
-    http_username: YOUR_TASMOTA_USERNAME
-    http_password: SECRET_tasmota_http_password
+    http_username: YOUR_TASMOTA_USERNAME # (optional)
+    http_password: SECRET_tasmota_http_password # (optional)
     backend_name: github
     repository_sub_directory: tasmota
 
