@@ -124,16 +124,16 @@ for backend_name in backends:
         except ValueError:
             logger.info("adding new remote origin")
             remote = git_repo.create_remote("origin", repo_url)
-        # fetch upstream branches
-        remote.update()
         # remote.fetch()
-        # git_repo.git.checkout(branch_name)
         remote_is_empty = False
 
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             try:
                 logger.info("pulling remote '%s' branch", branch_name)
+                # fetch upstream branches
+                remote.update()
                 remote.pull(branch_name)
+                git_repo.git.checkout(branch_name)
             except git.exc.GitCommandError as e:
                 # TODO fix error handling for empty upstream repo
                 logger.error(e.stderr)
@@ -149,6 +149,9 @@ for backend_name in backends:
                 elif "Could not read from remote repository" in e.stderr:
                     logger.error(
                         "repository does not exist or is not readable")
+                    exit(1)
+                elif "refusing to merge unrelated histories" in e.stderr:
+                    logger.error("local and upstream repository histories diverge")
                     exit(1)
                 else:
                     logger.error("couldn't find remote ref '%s'" % branch_name)
@@ -215,8 +218,6 @@ for backend_name in backends:
                     sys.exc_info()[1], command))
                 exit(1)
 
-        # TODO export + import key functionality
-        # git_repo.git.checkout(branch_name)
         num_local_commits = len(list(git_repo.iter_commits(branch_name)))
         logger.debug("num_local_commits: '%i'", num_local_commits)
         if "origin/%s" % branch_name in git_repo.refs:
