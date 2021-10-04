@@ -11,18 +11,18 @@ Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
 
 ## Features
 
-- [x] Automatic backup fetching
-    - [x] Tasmota Configurations
+- ✅ Automatic backup fetching
+    - ✅ Tasmota Configurations
     - [ ] ZFS snapshots
     - [ ] linux directories via SSH
     - [ ] linux directories via [borg](https://www.borgbackup.org/)
-- [ ] Transparent encryption
-- [ ] Backup differentially
-- [ ] Automatically upload to storage backend
-    - [ ] Git Backend
+- ✅ Transparent encryption ([git-crypt](https://github.com/AGWA/git-crypt))
+- ✅ Backup differentially
+- ✅ Automatically upload to storage backend
+    - ✅ Git Backend
     - [ ] Nextcloud Backend
     - [ ] SSH Backend
-- [ ] Run as Python Script
+- ✅ Run as Python Script
 - [ ] Run as (Docker) Container
 - [ ] Container Image available on Docker Hub
 
