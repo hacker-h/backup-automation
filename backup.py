@@ -20,7 +20,7 @@ from pathlib import Path
 
 # setup logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger("backup")
 
@@ -192,10 +192,10 @@ for backend_name in backends:
                 process_handle = subprocess.run(shlex.split(
                     command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
                 process_output = process_handle.stdout.decode()
-                logger.info(process_output)
             except:
                 logger.error("{} while running {}".format(
                     sys.exc_info()[1], command))
+                logger.error(process_output)
                 exit(1)
         elif "Generating key..." in process_output:
             logger.debug("git-crypt initialized")
@@ -347,7 +347,7 @@ for backend_name in backends:
             remote.pull(branch_name)
         repo_changes = git_repo.is_dirty(untracked_files=True)
         if repo_changes:
-            logger.info("There are changes: '%s'", repo_changes)
+            logger.debug("There are changes, staging all of them..")
             git_repo.git.add(".")
             logger.debug("validating git encryption")
             command = "git-crypt status"
@@ -374,11 +374,14 @@ for backend_name in backends:
                         "Full output of git-crypt status: '%s'", process_output)
                     exit(1)
             logger.debug("git encryption works")
-            logger.info("Committing")
+            logger.debug("Committing")
             git_repo.index.commit(commit_message)
-            logger.info("Commit created")
+            logger.debug("Commit created")
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+                logger.info("pushing local '%s' branch", branch_name)
                 remote.push(branch_name)
+        else:
+            logger.info("everything up to date")
     else:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
