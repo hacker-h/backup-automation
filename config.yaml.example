@@ -2,17 +2,16 @@ backends:
   github:
     type: git
     hostname: github.com
-    branch_name: main
+    branch_name: main # (optional)
     identity_file: /home/USERNAME/.ssh/id_rsa
     repository_directory: /home/USERNAME/.backup-automation/backup_git_repo
     repository_url: git@github.com:YOUR_GITHUB_USER/YOUR_GITHUB_REPO.git
-    crypt_key_directory: /home/USERNAME/.backup-automation/.git-crypt-keys
     gpg_user_id: YOUR_LONG_GPG_USER_ID
 
 templates:
   tasmota_github:
-    http_username: YOUR_TASMOTA_USERNAME
-    http_password: SECRET_tasmota_http_password
+    http_username: YOUR_TASMOTA_USERNAME # (optional)
+    http_password: SECRET_tasmota_http_password # (optional)
     backend_name: github
     repository_sub_directory: tasmota
 
