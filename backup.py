@@ -163,7 +163,7 @@ for backend_name in backends:
         # TODO enable git-crypt
         command = "git-crypt init"
         try:
-            process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
             process_output = process_handle.stdout.decode()
             if "already been initialized" in process_output:
                 logger.debug("git-crypt is already initialized")
@@ -185,19 +185,26 @@ for backend_name in backends:
         logger.debug("num_remote_commits: '%i'", num_remote_commits)
         unpushed_commits = num_local_commits > num_remote_commits
         if unpushed_commits:
-            logger.info("validating git-crypt status")
+            logger.debug("validating git encryption")
             command = "git-crypt status"
             try:
-                process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
                 process_output = process_handle.stdout.decode()
-                logger.info(process_output)
             except:
                 logger.error("{} while running {}".format(
                     sys.exc_info()[1], command))
                 exit(1)
+            output_lines = process_output.splitlines()
+            output_lines.remove('not encrypted: .gitattributes')
+            output_lines.remove('not encrypted: README.md')
+            for line in output_lines:
+                if line.startswith("not encrypted"):
+                    logger.error("Error there is at least one unencrypted file: '%s'", line)
+                    logger.error("Full output of git-crypt status: '%s'", process_output)
+                    exit(1)
+            logger.debug("git encryption works")
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
                 logger.info("pushing '%s' branch", branch_name)
-                exit(0)
                 remote.push(branch_name)
         else:
             logger.debug("there are no unpushed commits")

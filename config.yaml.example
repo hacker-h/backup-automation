@@ -2,6 +2,7 @@ backends:
   - name: github
     type: git
     hostname: github.com
+    branch_name: main
     identity_file: ~/.ssh/id_rsa
     repository_directory: ~/.backup-automation/backup_git_repo
     repository_url: git@github.com:YOUR_GITHUB_USER/YOUR_GITHUB_REPO.git
