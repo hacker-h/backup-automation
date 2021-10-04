@@ -1,11 +1,13 @@
 backends:
-  - name: github
+  github:
     type: git
     hostname: github.com
     branch_name: main
-    identity_file: ~/.ssh/id_rsa
-    repository_directory: ~/.backup-automation/backup_git_repo
+    identity_file: /home/USERNAME/.ssh/id_rsa
+    repository_directory: /home/USERNAME/.backup-automation/backup_git_repo
     repository_url: git@github.com:YOUR_GITHUB_USER/YOUR_GITHUB_REPO.git
+    crypt_key_directory: /home/USERNAME/.backup-automation/.git-crypt-keys
+    gpg_user_id: YOUR_GPG_USER_ID
 
 templates:
   tasmota_github:

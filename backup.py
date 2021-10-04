@@ -103,10 +103,15 @@ for backend_name in backends:
         repo_dir: str = backend.get("repository_directory")
         branch_name: str = backend.get("branch_name", "master")
         identity_file: str = backend.get("identity_file")
+        repo_name: str = os.path.basename(repo_dir)
+        crypt_key_directory: str = backend.get("crypt_key_directory")
+        crypt_key_filename: str = "%s.key" % repo_name
+        crypt_key_path: str = os.path.join(
+            crypt_key_directory, crypt_key_filename)
         ssh_cmd = "ssh -i %s" % identity_file
         Path(repo_dir).mkdir(parents=True, exist_ok=True)
         git_repo = git.Repo.init(repo_dir)
-        
+
         try:
             remote = git_repo.remote("origin")
             if remote.url != repo_url:
@@ -124,7 +129,7 @@ for backend_name in backends:
         # remote.fetch()
         git_repo.git.checkout(branch_name)
         remote_is_empty = False
-        
+
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             try:
                 logger.info("pulling remote '%s' branch", branch_name)
@@ -140,7 +145,8 @@ for backend_name in backends:
                         logger.info("creating local '%s' branch", branch_name)
                         git_repo.git.checkout(b=branch_name)
                 elif "Could not read from remote repository" in e.stderr:
-                    logger.error("repository does not exist or is not readable")
+                    logger.error(
+                        "repository does not exist or is not readable")
                     exit(1)
                 else:
                     raise e
@@ -162,7 +168,8 @@ for backend_name in backends:
             git_repo.index.commit("add .gitattributes")
         command = "git-crypt init"
         try:
-            process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+            process_handle = subprocess.run(shlex.split(
+                command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
             process_output = process_handle.stdout.decode()
             if "already been initialized" in process_output:
                 logger.debug("git-crypt is already initialized")
@@ -176,7 +183,8 @@ for backend_name in backends:
         num_local_commits = len(list(git_repo.iter_commits(branch_name)))
         logger.debug("num_local_commits: '%i'", num_local_commits)
         if "origin/%s" % branch_name in git_repo.refs:
-            num_remote_commits = len(list(git_repo.iter_commits("origin/%s" % branch_name)))
+            num_remote_commits = len(
+                list(git_repo.iter_commits("origin/%s" % branch_name)))
         else:
             num_remote_commits = 0
         if remote_is_empty:
@@ -187,7 +195,8 @@ for backend_name in backends:
             logger.debug("validating git encryption")
             command = "git-crypt status"
             try:
-                process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+                process_handle = subprocess.run(shlex.split(
+                    command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
                 process_output = process_handle.stdout.decode()
             except:
                 logger.error("{} while running {}".format(
@@ -199,8 +208,10 @@ for backend_name in backends:
             logger.debug(output_lines)
             for line in output_lines:
                 if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
-                    logger.error("Error there is at least one unencrypted file: '%s'", line)
-                    logger.error("Full output of git-crypt status: '%s'", process_output)
+                    logger.error(
+                        "Error there is at least one unencrypted file: '%s'", line)
+                    logger.error(
+                        "Full output of git-crypt status: '%s'", process_output)
                     exit(1)
             logger.debug("git encryption works")
             with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
@@ -301,7 +312,8 @@ for backend_name in backends:
             logger.debug("validating git encryption")
             command = "git-crypt status"
             try:
-                process_handle = subprocess.run(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+                process_handle = subprocess.run(shlex.split(
+                    command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
                 process_output = process_handle.stdout.decode()
             except:
                 logger.error("{} while running {}".format(
@@ -313,8 +325,10 @@ for backend_name in backends:
             logger.debug(output_lines)
             for line in output_lines:
                 if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
-                    logger.error("Error there is at least one unencrypted file: '%s'", line)
-                    logger.error("Full output of git-crypt status: '%s'", process_output)
+                    logger.error(
+                        "Error there is at least one unencrypted file: '%s'", line)
+                    logger.error(
+                        "Full output of git-crypt status: '%s'", process_output)
                     exit(1)
             logger.debug("git encryption works")
             logger.info("Committing")
