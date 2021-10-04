@@ -63,8 +63,7 @@ backup_configs = config_data.get("backup_configs")
 
 secrets = secrets_data.get('secrets')
 
-# validate yaml files data
-# TODO
+# TODO validate yaml files data
 
 # render secrets into templates dict
 for template_name in templates:
@@ -167,32 +166,50 @@ for backend_name in backends:
             untracked_files = git_repo.untracked_files
             git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
-        logger.debug("initializing git-crypt")
-        command = "git-crypt init"
-        try:
-            process_handle = subprocess.run(shlex.split(
-                command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
-            process_output = process_handle.stdout.decode()
-            if "already been initialized" in process_output:
-                logger.debug("git-crypt is already initialized")
-            elif "Generating key..." in process_output:
-                logger.debug("git-crypt initialized")
-        except:
-            logger.error("{} while running {}".format(
-                sys.exc_info()[1], command))
-            exit(1)
-        logger.debug("adding gpg user id to git-crypt")
-        command = "git-crypt add-gpg-user %s" % gpg_user_id
-        try:
-            process_handle = subprocess.run(shlex.split(
-                command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
-            process_output = process_handle.stdout.decode()
-            print(process_output)
-        except:
-            logger.error("{} while running {}".format(
-                sys.exc_info()[1], command))
-            exit(1)
-        exit(0)
+        git_crypt_dir = os.path.join(repo_dir, ".git-crypt")
+        crypt_initialized = False
+        if Path(git_crypt_dir).is_dir():
+            logger.debug("git-crypt was already initialized")
+            crypt_initialized = True
+        else:
+            logger.debug("initializing git-crypt")
+            command = "git-crypt init"
+            try:
+                process_handle = subprocess.run(shlex.split(
+                    command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+                process_output = process_handle.stdout.decode()
+                if "already been initialized" in process_output:
+                    logger.debug("git-crypt is already initialized")
+                    crypt_initialized = True
+            except:
+                logger.error("{} while running {}".format(
+                    sys.exc_info()[1], command))
+                exit(1)
+        if crypt_initialized:
+            logger.debug("unlocking git-crypt")
+            command = "git-crypt unlock"
+            try:
+                process_handle = subprocess.run(shlex.split(
+                    command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+                process_output = process_handle.stdout.decode()
+                logger.info(process_output)
+            except:
+                logger.error("{} while running {}".format(
+                    sys.exc_info()[1], command))
+                exit(1)
+        elif "Generating key..." in process_output:
+            logger.debug("git-crypt initialized")
+            logger.debug("adding gpg user id to git-crypt")
+            command = "git-crypt add-gpg-user %s" % gpg_user_id
+            try:
+                process_handle = subprocess.run(shlex.split(
+                    command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+                process_output = process_handle.stdout.decode()
+                print(process_output)
+            except:
+                logger.error("{} while running {}".format(
+                    sys.exc_info()[1], command))
+                exit(1)
 
         # TODO export + import key functionality
         num_local_commits = len(list(git_repo.iter_commits(branch_name)))
@@ -288,6 +305,8 @@ for backup_config in backup_configs:
         json_content = f.read()
         try:
             json_dict = json.loads(json_content)
+            f.seek(0)
+            json.dump(json_dict, f, indent=2)
         except json.decoder.JSONDecodeError:
             logger.error("Invalid JSON data from host '%s'", backup_host)
             exit(1)
@@ -364,5 +383,4 @@ for backend_name in backends:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
 
-# TODO
-# if push fails, repeat: reset commit, stash, pull, stash pop, commit, push
+# TODO if push fails, repeat: reset commit, stash, pull, stash pop, commit, push
