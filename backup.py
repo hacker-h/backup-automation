@@ -127,7 +127,7 @@ for backend_name in backends:
         # fetch upstream branches
         remote.update()
         # remote.fetch()
-        git_repo.git.checkout(branch_name)
+        # git_repo.git.checkout(branch_name)
         remote_is_empty = False
 
         with git_repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
@@ -135,7 +135,9 @@ for backend_name in backends:
                 logger.info("pulling remote '%s' branch", branch_name)
                 remote.pull(branch_name)
             except git.exc.GitCommandError as e:
-                if "couldn't find remote ref '%s'" % branch_name in e.stderr:
+                # TODO fix error handling for empty upstream repo
+                logger.error(e.stderr)
+                if "couldn't find remote ref %s" % branch_name in e.stderr:
                     logger.info("remote '%s' branch is missing", branch_name)
                     remote_is_empty = True
                     if branch_name in git_repo.heads:
@@ -149,6 +151,8 @@ for backend_name in backends:
                         "repository does not exist or is not readable")
                     exit(1)
                 else:
+                    logger.error("couldn't find remote ref '%s'" % branch_name)
+                    logger.error(e.stderr)
                     raise e
         untracked_files = git_repo.untracked_files
         if untracked_files:
@@ -212,6 +216,7 @@ for backend_name in backends:
                 exit(1)
 
         # TODO export + import key functionality
+        # git_repo.git.checkout(branch_name)
         num_local_commits = len(list(git_repo.iter_commits(branch_name)))
         logger.debug("num_local_commits: '%i'", num_local_commits)
         if "origin/%s" % branch_name in git_repo.refs:
@@ -235,14 +240,16 @@ for backend_name in backends:
                     sys.exc_info()[1], command))
                 exit(1)
             output_lines = process_output.splitlines()
-            # skip mandatory file
-            output_lines.remove('not encrypted: .gitattributes')
-            # skip readme
-            output_lines.remove('not encrypted: README.md')
             logger.debug(output_lines)
             for line in output_lines:
+                if line == 'not encrypted: .gitattributes':
+                    # do not encrypt mandatory git metadata
+                    continue
+                if line == 'not encrypted: README.md':
+                    # do not encrypt readme
+                    continue
                 if line.startswith("not encrypted: .git-crypt/"):
-                    # skip git-crypt metadata
+                    # do not encrypt git-crypt metadata
                     continue
                 if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
                     logger.error(
@@ -360,12 +367,16 @@ for backend_name in backends:
                     sys.exc_info()[1], command))
                 exit(1)
             output_lines = process_output.splitlines()
-            output_lines.remove('not encrypted: .gitattributes')
-            output_lines.remove('not encrypted: README.md')
             logger.debug(output_lines)
             for line in output_lines:
+                if line == 'not encrypted: .gitattributes':
+                    # do not encrypt mandatory git metadata
+                    continue
+                if line == 'not encrypted: README.md':
+                    # do not encrypt readme
+                    continue
                 if line.startswith("not encrypted: .git-crypt/"):
-                    # skip git-crypt metadata
+                    # do not encrypt git-crypt metadata
                     continue
                 if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
                     logger.error(
