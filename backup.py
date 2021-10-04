@@ -108,6 +108,7 @@ for backend_name in backends:
         crypt_key_filename: str = "%s.key" % repo_name
         crypt_key_path: str = os.path.join(
             crypt_key_directory, crypt_key_filename)
+        gpg_user_id: str = backend.get("gpg_user_id")
         ssh_cmd = "ssh -i %s" % identity_file
         Path(repo_dir).mkdir(parents=True, exist_ok=True)
         git_repo = git.Repo.init(repo_dir)
@@ -166,6 +167,7 @@ for backend_name in backends:
             untracked_files = git_repo.untracked_files
             git_repo.index.add(untracked_files)
             git_repo.index.commit("add .gitattributes")
+        logger.debug("initializing git-crypt")
         command = "git-crypt init"
         try:
             process_handle = subprocess.run(shlex.split(
@@ -179,6 +181,19 @@ for backend_name in backends:
             logger.error("{} while running {}".format(
                 sys.exc_info()[1], command))
             exit(1)
+        logger.debug("adding gpg user id to git-crypt")
+        command = "git-crypt add-gpg-user %s" % gpg_user_id
+        try:
+            process_handle = subprocess.run(shlex.split(
+                command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
+            process_output = process_handle.stdout.decode()
+            print(process_output)
+        except:
+            logger.error("{} while running {}".format(
+                sys.exc_info()[1], command))
+            exit(1)
+        exit(0)
+
         # TODO export + import key functionality
         num_local_commits = len(list(git_repo.iter_commits(branch_name)))
         logger.debug("num_local_commits: '%i'", num_local_commits)
@@ -203,10 +218,15 @@ for backend_name in backends:
                     sys.exc_info()[1], command))
                 exit(1)
             output_lines = process_output.splitlines()
+            # skip mandatory file
             output_lines.remove('not encrypted: .gitattributes')
+            # skip readme
             output_lines.remove('not encrypted: README.md')
             logger.debug(output_lines)
             for line in output_lines:
+                if line.startswith("not encrypted: .git-crypt/"):
+                    # skip git-crypt metadata
+                    continue
                 if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
                     logger.error(
                         "Error there is at least one unencrypted file: '%s'", line)
@@ -300,6 +320,7 @@ for backend_name in backends:
         repo_dir: str = backend.get("repository_directory")
         branch_name: str = backend.get("branch_name", "master")
         identity_file: str = backend.get("identity_file")
+        gpg_user_id: str = backend.get("gpg_user_id")
         ssh_cmd = "ssh -i %s" % identity_file
         remote = git_repo.remote("origin")
         # pull upstream changes
@@ -324,6 +345,9 @@ for backend_name in backends:
             output_lines.remove('not encrypted: README.md')
             logger.debug(output_lines)
             for line in output_lines:
+                if line.startswith("not encrypted: .git-crypt/"):
+                    # skip git-crypt metadata
+                    continue
                 if line.startswith("not encrypted") or "NOT ENCRYPTED" in line:
                     logger.error(
                         "Error there is at least one unencrypted file: '%s'", line)
