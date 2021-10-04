@@ -103,10 +103,6 @@ for backend_name in backends:
         branch_name: str = backend.get("branch_name", "master")
         identity_file: str = backend.get("identity_file")
         repo_name: str = os.path.basename(repo_dir)
-        crypt_key_directory: str = backend.get("crypt_key_directory")
-        crypt_key_filename: str = "%s.key" % repo_name
-        crypt_key_path: str = os.path.join(
-            crypt_key_directory, crypt_key_filename)
         gpg_user_id: str = backend.get("gpg_user_id")
         ssh_cmd = "ssh -i %s" % identity_file
         Path(repo_dir).mkdir(parents=True, exist_ok=True)
