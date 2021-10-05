@@ -11,7 +11,7 @@ FROM python:3.9-alpine3.12@sha256:7f73901e568630443fc50e358b76603492e89c9bf330ca
 RUN apk add --no-cache git git-crypt gnupg openssh-client
 ENV DECODE_CONFIG_VERSION="v9.5.0"
 RUN wget -O /usr/local/bin/decode-config \
-    "https://github.com/tasmota/decode-config/releases/download/${DECODE_CONFIG_VERSION}/decode-config_linux" &&\
+    "https://raw.githubusercontent.com/tasmota/decode-config/${DECODE_CONFIG_VERSION}/decode-config.py" &&\
     chmod +x /usr/local/bin/decode-config
 
 RUN adduser -S backuper -s /bin/nologin -u 1537
