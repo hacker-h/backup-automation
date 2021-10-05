@@ -122,7 +122,7 @@ some other action (type on the keyboard, move the mouse, utilize the
 disks) during the prime generation; this gives the random number
 generator a better chance to gain enough entropy.
 gpg: key AA5678C075BD6E53 marked as ultimately trusted
-gpg: revocation certificate stored as '/home/hacker/.gnupg/openpgp-revocs.d/6F354F058C89D54BC0AEB43CAA5678C075BD6E53.rev'
+gpg: revocation certificate stored as '/home/ubuntu/.gnupg/openpgp-revocs.d/6F354F058C89D54BC0AEB43CAA5678C075BD6E53.rev'
 public and secret key created and signed.
 
 pub   rsa4096 2021-10-04 [CE]
@@ -139,9 +139,9 @@ GPG_LONG_ID=6F354F058C89D54BC0AEB43CAA5678C075BD6E53
 # list your private key
 gpg --list-secret-keys ${GPG_LONG_ID}
 # export private key to file
-gpg -o ${GPG_LONG_ID}.gpg --export-options backup --export-secret-keys ${GPG_LONG_ID}
+gpg --armor --export-secret-keys ${GPG_LONG_ID} > ${GPG_LONG_ID}.gpg
 # export the trust level of your owned keys
-gpg --export-ownertrust > trusted_keys_backup.txt
+gpg --export-ownertrust > trustdb.txt
 ```
 
 ### Restore your GPG key from backup
@@ -152,12 +152,12 @@ GPG_LONG_ID=6F354F058C89D54BC0AEB43CAA5678C075BD6E53
 # delete your key in case you want to test backup restore in the same environment
 # gpg --delete-secret-and-public-keys ${GPG_LONG_ID}
 # import your key
-gpg --import-options restore --import ${GPG_LONG_ID}.gpg
+gpg --import ${GPG_LONG_ID}.gpg
 
 # delete your trustdb and import your trust backup,
 # otherwise you will have to manually trust your key with gpg --edit-key ${GPG_LONG_ID}
 rm ~/.gnupg/trustdb.gpg
-gpg --import-ownertrust < trusted_keys_backup.txt
+gpg --import-ownertrust < trustdb.txt
 # list your private key
 gpg --list-secret-keys ${GPG_LONG_ID}
 ```
