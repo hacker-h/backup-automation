@@ -7,6 +7,7 @@ done
 
 # setup ssh
 # TODO integrate automatically for all used hosts into backup.py
+mkdir -p ~/.ssh
 ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 ssh-keyscan -t rsa gitlab.com >> ~/.ssh/known_hosts
 

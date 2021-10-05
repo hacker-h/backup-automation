@@ -9,8 +9,8 @@ services:
     volumes:
         - ./config.yaml:/srv/config.yaml:ro
         - ./secrets.yaml:/srv/secrets.yaml:ro
-        - ./ssh_key.key:/srv/ssh_keys/ssh_key.key:ro
-        - ./gpg_key.key:/srv/gpg_keys/gpg_key.key:ro
+        - ./backup_automation_ssh.key:/srv/ssh_keys/ssh_key.key:ro
+        - ./backup_automation_gpg.key:/srv/gpg_keys/gpg_key.key:ro
         - ./trustdb.txt:/srv/trustdb.txt:ro
     environment:
         - LOG_LEVEL=INFO

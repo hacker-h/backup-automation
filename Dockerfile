@@ -8,9 +8,15 @@ RUN apk add gcc libffi-dev libressl-dev musl-dev &&\
 
 FROM python:3.9-alpine3.12@sha256:7f73901e568630443fc50e358b76603492e89c9bf330caf689e856a018f135f0 as runner
 
-RUN apk add --no-cache gnupg openssh-client
+RUN apk add --no-cache git git-crypt gnupg openssh-client
+ENV DECODE_CONFIG_VERSION="v9.5.0"
+RUN wget -O /usr/local/bin/decode-config \
+    "https://github.com/tasmota/decode-config/releases/download/${DECODE_CONFIG_VERSION}/decode-config_linux" &&\
+    chmod +x /usr/local/bin/decode-config
 
 RUN adduser -S backuper -s /bin/nologin -u 1537
+
+RUN chown -R 1537 /srv
 USER 1537
 
 COPY --from=builder /root/.local /home/backuper/.local

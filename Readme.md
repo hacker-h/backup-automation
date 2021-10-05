@@ -1,14 +1,6 @@
 # Backup Automation
 This is a tool to automatically backup your systems with encryption to storage backends.
 
-# Requirements
-```
-sudo wget -O /usr/local/bin/decode-config https://github.com/tasmota/decode-config/releases/download/v9.5.0/decode-config_linux
-sudo chmod +x /usr/local/bin/decode-config
-```
-
-Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
-
 # Features
 
 - [x] Automatic backup fetching
@@ -32,8 +24,9 @@ Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
 # Requirements
 - at least one tasmota device with enabled web interface
 - [Python 3.9](https://linuxize.com/post/how-to-install-python-3-9-on-ubuntu-20-04/) or newer
-
-This allows you to extract sensitive values into a dedicated more compact file.
+- [decode-config](https://github.com/tasmota/decode-config) available in PATH
+- [git-crypt](https://github.com/AGWA/git-crypt) available in PATH
+- [GPG](https://gnupg.org/) available in PATH
 
 # Getting started
 This will take only a few minutes.
@@ -162,13 +155,16 @@ gpg --import-ownertrust < trustdb.txt
 gpg --list-secret-keys ${GPG_LONG_ID}
 ```
 
+
 ## Configuration
 - make sure your gpg key is available:
   ```
   gpg --list-secret-keys
   ```
 - fill out the `config.yaml.example` properly as `config.yaml`
-- (optional) use the `secrets.yaml` to render variable values that start with `SECRET_`. This allows you to extract sensitive values from the `config.yaml`.
+- (optional) use the `secrets.yaml` to render variable values that start with `SECRET_`.
+
+    This allows you to extract sensitive values from the `config.yaml`.
 
 ## Run with Python3.9
 ```
