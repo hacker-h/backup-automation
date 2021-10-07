@@ -15,7 +15,7 @@ This is a tool to automatically backup your systems with encryption to storage b
     - [ ] Nextcloud Backend
     - [ ] SSH Backend
 - [x] Run as Python Script
-- [ ] Run as (Docker) Container
+- [x] Run as (Docker) Container with Docker Compose
 - [ ] Container Image available on Docker Hub
 
 # No Support planned
@@ -164,7 +164,7 @@ gpg --list-secret-keys ${GPG_LONG_ID}
 - fill out the `config.yaml.example` properly as `config.yaml`
 - (optional) use the `secrets.yaml` to render variable values that start with `SECRET_`.
 
-    This allows you to extract sensitive values from the `config.yaml`.
+  This allows you to extract sensitive values from the `config.yaml`.
 
 ## Run with Python3.9
 ```
@@ -176,4 +176,18 @@ source ~/.venv/backup-automation/bin/activate
 pip3.9 install -r requirements.txt
 # run the backup script
 python3.9 ./backup.py
+```
+
+## Run with Docker Compose
+prepare all files according to the example docker-compose.yml file
+
+OR customize it to your needs:
+- mount all your private SSH keys to /srv/ssh_keys
+- mount all your exported secret GPG keys to /srv/gpg_keys
+- mount your `config.yaml` to /srv/
+- mount your `secrets.yaml` to /srv/
+
+note: if you try to mount a non existing file, docker-compose will create an empty directory instead
+```bash
+docker-compose up -d
 ```
