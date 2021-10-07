@@ -3,3 +3,4 @@ secrets.yaml
 .vscode/
 *.key
 trustdb.txt
+data/

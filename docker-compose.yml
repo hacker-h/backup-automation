@@ -11,7 +11,8 @@ services:
         - ./secrets.yaml:/srv/secrets.yaml:ro
         - ./backup_automation_ssh.key:/srv/ssh_keys/ssh_key.key:ro
         - ./backup_automation_gpg.key:/srv/gpg_keys/gpg_key.key:ro
+        - ./data:/srv/backup-automation
     environment:
-        - LOG_LEVEL=DEBUG
+        - LOG_LEVEL=INFO
         - BACKUP_DELAY_IN_SECONDS=61
     restart: always

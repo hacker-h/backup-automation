@@ -179,7 +179,7 @@ python3.9 ./backup.py
 ```
 
 ## Run with Docker Compose
-prepare all files according to the example docker-compose.yml file
+Prepare all files according to the example docker-compose.yml file
 
 OR customize it to your needs:
 - mount all your private SSH keys to /srv/ssh_keys
@@ -188,6 +188,12 @@ OR customize it to your needs:
 - mount your `secrets.yaml` to /srv/
 
 note: if you try to mount a non existing file, docker-compose will create an empty directory instead
+
 ```bash
+# to keep the git repo backup data locally
+mkdir -p ./data
+# prepare data volume permissions
+sudo chmod o+rw data
+# run the container with all volumes + default env vars
 docker-compose up -d
 ```
