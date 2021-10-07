@@ -18,11 +18,14 @@ import git
 import pathlib
 from pathlib import Path
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
 # setup logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.ERROR
 )
 logger = logging.getLogger("backup")
+logger.setLevel(LOG_LEVEL)
 
 # constants
 CONFIG_FILE = "config.yaml"
@@ -147,7 +150,8 @@ for backend_name in backends:
                         "repository does not exist or is not readable")
                     exit(1)
                 elif "refusing to merge unrelated histories" in e.stderr:
-                    logger.error("local and upstream repository histories diverge")
+                    logger.error(
+                        "local and upstream repository histories diverge")
                     exit(1)
                 else:
                     logger.error("couldn't find remote ref '%s'" % branch_name)
@@ -195,11 +199,13 @@ for backend_name in backends:
                 process_handle = subprocess.run(shlex.split(
                     command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=repo_dir)
                 process_output = process_handle.stdout.decode()
+                logger.debug("git-crypt unlock output: '%s'", process_output)
             except:
                 logger.error("{} while running {}".format(
                     sys.exc_info()[1], command))
                 logger.error(process_output)
                 exit(1)
+
         elif "Generating key..." in process_output:
             logger.debug("git-crypt initialized")
             logger.debug("adding gpg user id to git-crypt")

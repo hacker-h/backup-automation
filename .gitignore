@@ -1,3 +1,5 @@
 config.yaml
 secrets.yaml
 .vscode/
+*.key
+trustdb.txt

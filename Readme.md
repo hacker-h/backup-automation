@@ -1,14 +1,6 @@
 # Backup Automation
 This is a tool to automatically backup your systems with encryption to storage backends.
 
-# Requirements
-```
-sudo wget -O /usr/local/bin/decode-config https://github.com/tasmota/decode-config/releases/download/v9.5.0/decode-config_linux
-sudo chmod +x /usr/local/bin/decode-config
-```
-
-Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
-
 # Features
 
 - [x] Automatic backup fetching
@@ -32,8 +24,9 @@ Setup `config.yaml` and `secrets.yaml` according to the `.example` files.
 # Requirements
 - at least one tasmota device with enabled web interface
 - [Python 3.9](https://linuxize.com/post/how-to-install-python-3-9-on-ubuntu-20-04/) or newer
-
-This allows you to extract sensitive values into a dedicated more compact file.
+- [decode-config](https://github.com/tasmota/decode-config) available in PATH
+- [git-crypt](https://github.com/AGWA/git-crypt) available in PATH
+- [GPG](https://gnupg.org/) available in PATH
 
 # Getting started
 This will take only a few minutes.
@@ -122,7 +115,7 @@ some other action (type on the keyboard, move the mouse, utilize the
 disks) during the prime generation; this gives the random number
 generator a better chance to gain enough entropy.
 gpg: key AA5678C075BD6E53 marked as ultimately trusted
-gpg: revocation certificate stored as '/home/hacker/.gnupg/openpgp-revocs.d/6F354F058C89D54BC0AEB43CAA5678C075BD6E53.rev'
+gpg: revocation certificate stored as '/home/ubuntu/.gnupg/openpgp-revocs.d/6F354F058C89D54BC0AEB43CAA5678C075BD6E53.rev'
 public and secret key created and signed.
 
 pub   rsa4096 2021-10-04 [CE]
@@ -139,9 +132,9 @@ GPG_LONG_ID=6F354F058C89D54BC0AEB43CAA5678C075BD6E53
 # list your private key
 gpg --list-secret-keys ${GPG_LONG_ID}
 # export private key to file
-gpg -o ${GPG_LONG_ID}.gpg --export-options backup --export-secret-keys ${GPG_LONG_ID}
+gpg --armor --export-secret-keys ${GPG_LONG_ID} > ${GPG_LONG_ID}.gpg
 # export the trust level of your owned keys
-gpg --export-ownertrust > trusted_keys_backup.txt
+gpg --export-ownertrust > trustdb.txt
 ```
 
 ### Restore your GPG key from backup
@@ -152,15 +145,16 @@ GPG_LONG_ID=6F354F058C89D54BC0AEB43CAA5678C075BD6E53
 # delete your key in case you want to test backup restore in the same environment
 # gpg --delete-secret-and-public-keys ${GPG_LONG_ID}
 # import your key
-gpg --import-options restore --import ${GPG_LONG_ID}.gpg
+gpg --import ${GPG_LONG_ID}.gpg
 
 # delete your trustdb and import your trust backup,
 # otherwise you will have to manually trust your key with gpg --edit-key ${GPG_LONG_ID}
 rm ~/.gnupg/trustdb.gpg
-gpg --import-ownertrust < trusted_keys_backup.txt
+gpg --import-ownertrust < trustdb.txt
 # list your private key
 gpg --list-secret-keys ${GPG_LONG_ID}
 ```
+
 
 ## Configuration
 - make sure your gpg key is available:
@@ -168,7 +162,9 @@ gpg --list-secret-keys ${GPG_LONG_ID}
   gpg --list-secret-keys
   ```
 - fill out the `config.yaml.example` properly as `config.yaml`
-- (optional) use the `secrets.yaml` to render variable values that start with `SECRET_`. This allows you to extract sensitive values from the `config.yaml`.
+- (optional) use the `secrets.yaml` to render variable values that start with `SECRET_`.
+
+    This allows you to extract sensitive values from the `config.yaml`.
 
 ## Run with Python3.9
 ```

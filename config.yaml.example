@@ -3,8 +3,8 @@ backends:
     type: git
     hostname: github.com
     branch_name: main # (optional)
-    identity_file: /home/USERNAME/.ssh/id_rsa
-    repository_directory: /home/USERNAME/.backup-automation/backup_git_repo
+    identity_file: /srv/ssh_key.key
+    repository_directory: /srv/backup-automation/backup_git_repo
     repository_url: git@github.com:YOUR_GITHUB_USER/YOUR_GITHUB_REPO.git
     gpg_user_id: YOUR_LONG_GPG_USER_ID
 
