@@ -15,4 +15,4 @@ services:
     environment:
         - LOG_LEVEL=INFO
         - BACKUP_DELAY_IN_SECONDS=61
-    restart: always
+    # restart: always

@@ -309,7 +309,7 @@ for backup_config in backup_configs:
             logger.error("{} while running {}".format(
                 sys.exc_info()[1], command))
             exit(1)
-
+        process_output = process_handle.stdout.decode()
         # try to parse the obtained json
         f.seek(0)
         json_content = f.read()
@@ -319,6 +319,12 @@ for backup_config in backup_configs:
             json.dump(json_dict, f, indent=2)
         except json.decoder.JSONDecodeError:
             logger.error("Invalid JSON data from host '%s'", backup_host)
+            logger.error("decode-config faced an error:")
+            logger.error(process_output)
+            logger.error("TEMP_DIR: '%s'", TEMP_DIR)
+            logger.error("temp_dmp_name: '%s'", temp_dmp_name)
+            logger.error("temp_dmp_path: '%s'", command)
+            logger.error("command: '%s'", command)
             exit(1)
     # remove temporary dmp file
     os.remove(temp_dmp_path)
