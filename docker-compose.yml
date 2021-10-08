@@ -14,5 +14,5 @@ services:
         - ./data:/srv/backup-automation
     environment:
         - LOG_LEVEL=INFO
-        - BACKUP_DELAY_IN_SECONDS=61
+        - BACKUP_DELAY_IN_SECONDS=1
     # restart: always

@@ -302,17 +302,29 @@ for backup_config in backup_configs:
     command = "decode-config -s %s" % temp_dmp_path
     temp_json_name = "%s.json" % backup_host.replace("/", "_")
     temp_json_path = os.path.join(TEMP_DIR, temp_json_name)
+
     with open(temp_json_path, "w+") as f:
         try:
-            process_handle = subprocess.call(shlex.split(command), stdout=f)
+            decode_process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = decode_process.communicate()
+            plain_stdout = stdout.decode()
+            plain_stderr = stderr.decode()
+            logger.debug("plain_stdout: '%s'", plain_stdout)
+            logger.debug("plain_stderr: '%s'", plain_stderr)
+            if plain_stderr:
+                logger.error("'%s' yielded stderr '%s'", command, plain_stderr)
+                continue
+            if not plain_stdout:
+                logger.error("'%s' yielded no output", command)
+                continue
         except:
-            logger.error("{} while running {}".format(
+            logger.error("'{}' while running '{}'".format(
                 sys.exc_info()[1], command))
-            exit(1)
-        process_output = process_handle.stdout.decode()
+            logger.error(decode_process.stderr)
+            continue
+
         # try to parse the obtained json
-        f.seek(0)
-        json_content = f.read()
+        json_content = plain_stdout
         try:
             json_dict = json.loads(json_content)
             f.seek(0)
@@ -320,12 +332,13 @@ for backup_config in backup_configs:
         except json.decoder.JSONDecodeError:
             logger.error("Invalid JSON data from host '%s'", backup_host)
             logger.error("decode-config faced an error:")
-            logger.error(process_output)
+            logger.error("json_content: '%s'", json_content)
             logger.error("TEMP_DIR: '%s'", TEMP_DIR)
             logger.error("temp_dmp_name: '%s'", temp_dmp_name)
-            logger.error("temp_dmp_path: '%s'", command)
+            logger.error("temp_dmp_path: '%s'", temp_dmp_path)
             logger.error("command: '%s'", command)
-            exit(1)
+            continue
+
     # remove temporary dmp file
     os.remove(temp_dmp_path)
 
