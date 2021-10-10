@@ -288,8 +288,16 @@ for backup_config in backup_configs:
     backup_download_url = "http://%s/dl" % backup_host
     try:
         logger.info("Fetching backup for '%s'", backup_host)
-        response = requests.get(backup_download_url,
-                                auth=(http_username, http_password))
+        counter = 0
+        while True:
+            counter += 1
+            response = requests.get(backup_download_url,
+                                    auth=(http_username, http_password))
+            if len(response.content) == 4096:
+                break
+            logger.debug("fetched backup dump was damaged, retrying..")
+            if counter >= 3:
+                raise OSError
     except OSError:
         logger.error("Skipping '%s': network error", backup_host)
         continue
@@ -299,7 +307,7 @@ for backup_config in backup_configs:
         f.write(response.content)
 
     # decode binary to json
-    command = "decode-config -s %s" % temp_dmp_path
+    command = "decode-config --file %s" % temp_dmp_path
     temp_json_name = "%s.json" % backup_host.replace("/", "_")
     temp_json_path = os.path.join(TEMP_DIR, temp_json_name)
 
