@@ -427,4 +427,4 @@ for backend_name in backends:
         logger.error("Unsupported backend_type '%s'", backend_type)
         exit(1)
 
-# TODO if push fails, repeat: reset commit, stash, pull, stash pop, commit, push
+# TODO if push fails: reset commit and retry
